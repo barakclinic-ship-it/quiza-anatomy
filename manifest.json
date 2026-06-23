@@ -1,5 +1,18 @@
 {
-  "images": [
-    {"file": "femoral artery.PNG", "name": "femoral artery"}
+  "topics": [
+    {
+      "name": "Nerves",
+      "images": [
+        {"file": "nerves/ulnar nerve.png", "name": "ulnar nerve"},
+        {"file": "nerves/median nerve.png", "name": "median nerve"}
+      ]
+    },
+    {
+      "name": "Muscles",
+      "images": [
+        {"file": "muscles/soleus.PNG", "name": "soleus"},
+        {"file": "muscles/femoral artery.PNG", "name": "femoral artery"}
+      ]
+    }
   ]
 }
