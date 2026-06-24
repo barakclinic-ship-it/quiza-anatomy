@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PicTour v0.2</title>
+<title>PicTour v0.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap');
 :root {
@@ -15,9 +15,9 @@
   --text:#111111;
   --muted:#888888;
   --accent:#111111;
-  --neon-green:#39ff14;
-  --neon-pink:#ff2d9b;
-  --neon-blue:#00cfff;
+  --neon-green:#4caf50;
+  --neon-pink:#e91e8c;
+  --neon-blue:#2196f3;
   --wrong:#ff3333;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -180,9 +180,9 @@ header{
   font-size:12px;font-weight:600;cursor:pointer;
   text-align:center;line-height:1.3;transition:all 0.15s;
 }
-.quiz-opt.selected{border-color:var(--text);background:var(--surface);}
-.quiz-opt.correct{border-color:var(--neon-green);background:rgba(57,255,20,0.08);color:#1a8a00;}
-.quiz-opt.wrong{border-color:var(--wrong);background:rgba(255,51,51,0.07);color:var(--wrong);}
+.quiz-opt.selected{border-color:#2196f3;background:rgba(33,150,243,0.07);color:#1565c0;}
+.quiz-opt.correct{border-color:#4caf50;background:rgba(76,175,80,0.08);color:#2e7d32;}
+.quiz-opt.wrong{border-color:#e53935;background:rgba(229,57,53,0.08);color:#c62828;}
 .quiz-opt.disabled{cursor:default;}
 .quiz-actions{width:100%;display:flex;gap:8px;flex-shrink:0;}
 .btn-continue{
@@ -194,7 +194,7 @@ header{
 .btn-continue.ready{
   background:var(--neon-blue);border-color:var(--neon-blue);
   color:#003a4a;
-  box-shadow:0 0 12px rgba(0,207,255,0.5);
+  
 }
 .btn-skip{
   padding:11px 18px;border-radius:10px;
@@ -235,8 +235,7 @@ header{
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
   </button>
   <div style="display:flex;align-items:baseline;gap:0">
-    <span class="app-title">PicTour</span>
-    <span class="app-version">v0.2</span>
+    <span class="app-version">v0.3 </span><span class="app-title">PicTour</span>
   </div>
 </header>
 
@@ -582,7 +581,7 @@ function confirmQuiz() {
     scores.wrong++; updateScoreRow();
     cb.textContent = 'הבנתי';
     cb.className = 'btn-continue';
-    cb.style.cssText = 'flex:1;padding:11px;border-radius:10px;border:1.5px solid #ff3333;background:rgba(255,51,51,0.1);font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:#ff3333;';
+    cb.style.cssText = 'flex:1;padding:11px;border-radius:10px;border:1.5px solid #e53935;background:rgba(229,57,53,0.08);font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:#c62828;';
     cb.onclick = () => { const wp=document.getElementById('wrong-popup');if(wp)wp.remove(); pickNext(); };
     autoTimer = setTimeout(() => showWrongPopup(current.name), 500);
   }
@@ -637,7 +636,7 @@ function updateScoreRow() {
 function showCheckmark() {
   const el = document.createElement('div');
   el.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:200;';
-  el.innerHTML = `<div style="font-size:180px;color:#39ff14;text-shadow:0 0 40px #39ff14,0 0 80px #39ff14cc;animation:checkPop 0.9s ease forwards;line-height:1">✓</div>`;
+  el.innerHTML = `<div style="font-size:180px;color:#4caf50;animation:checkPop 0.9s ease forwards;line-height:1">✓</div>`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 900);
 }
@@ -646,18 +645,19 @@ function showWrongPopup(name) {
   const existing = document.getElementById('wrong-popup'); if (existing) existing.remove();
   const xEl = document.createElement('div');
   xEl.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:200;';
-  xEl.innerHTML = `<div style="font-size:150px;color:#ff3333;text-shadow:0 0 30px #ff333388;animation:xPop 0.9s ease forwards;line-height:1">✕</div>`;
+  xEl.innerHTML = `<div style="font-size:150px;color:#e53935;animation:xPop 0.9s ease forwards;line-height:1">✕</div>`;
   document.body.appendChild(xEl);
   setTimeout(() => xEl.remove(), 900);
   const bar = document.createElement('div');
   bar.id = 'wrong-popup';
-  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:300;padding:12px 16px;background:#111;display:flex;align-items:center;gap:12px;';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:300;padding:12px 16px;background:#c62828;display:flex;align-items:center;gap:12px;';
   bar.innerHTML = `<div style="flex:1;text-align:right"><div style="font-size:10px;color:#666;margin-bottom:2px">התשובה הנכונה</div><div style="font-size:16px;font-weight:700;color:#fff">${name}</div></div>`;
   document.body.appendChild(bar);
 }
 
 // ── SWIPE (touch) ──
 let swipeStartX = 0, swipeStartY = 0, isSwiping = false;
+let panOriginX = 0, panOriginY = 0, panStartX = 0, panStartY = 0;
 const cardWrap = document.getElementById('card-wrap');
 
 cardWrap.addEventListener('touchstart', e => {
@@ -665,6 +665,12 @@ cardWrap.addEventListener('touchstart', e => {
   swipeStartX = e.touches[0].clientX;
   swipeStartY = e.touches[0].clientY;
   isSwiping = false;
+  if (zoomScale > 1) {
+    panOriginX = e.touches[0].clientX;
+    panOriginY = e.touches[0].clientY;
+    panStartX = panX;
+    panStartY = panY;
+  }
 }, {passive:true});
 
 cardWrap.addEventListener('touchmove', e => {
@@ -777,10 +783,10 @@ cardWrap.addEventListener('touchmove', e => {
   }
   if(e.touches.length===1&&zoomScale>1&&!isSwiping){
     e.preventDefault();
-    const dx=e.touches[0].clientX-swipeStartX,dy=e.touches[0].clientY-swipeStartY;
+    const dx=e.touches[0].clientX-panOriginX,dy=e.touches[0].clientY-panOriginY;
     const mp=200*(zoomScale-1);
-    panX=Math.max(-mp,Math.min(mp,panX+dx));
-    panY=Math.max(-mp,Math.min(mp,panY+dy));
+    panX=Math.max(-mp,Math.min(mp,panStartX+dx));
+    panY=Math.max(-mp,Math.min(mp,panStartY+dy));
     applyZoom();
   }
 },{passive:false});
