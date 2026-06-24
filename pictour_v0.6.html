@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PicTour v0.5</title>
+<title>PicTour v0.6</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap');
 :root {
@@ -241,7 +241,7 @@ header{
 
 <header style="direction:ltr;">
   <div style="display:flex;align-items:baseline;gap:0">
-    <span class="app-title">PicTour</span><span class="app-version">v0.5</span>
+    <span class="app-title">PicTour</span><span class="app-version">v0.6</span>
   </div>
   <button id="home-btn" onclick="goHome()" style="display:none;background:none;border:none;cursor:pointer;padding:4px;opacity:0.35;">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
@@ -327,7 +327,14 @@ header{
       </div>
     </div>
   </div>
-  <div class="hint-row" id="hint-row">החלק שמאל/ימין • דאבל קליק להגדלה</div>
+  <div class="hint-row" id="hint-row">לחץ פעמיים להגדלה</div>
+  <!-- FLIP SLIDER -->
+  <div id="flip-slider-wrap" style="display:none;width:100%;padding:2px 0;flex-shrink:0;">
+    <div id="flip-slider-track" style="width:100%;height:36px;background:#f0f0f0;border-radius:18px;position:relative;touch-action:none;user-select:none;">
+      <div id="flip-slider-thumb" style="position:absolute;top:4px;left:4px;width:28px;height:28px;background:#111;border-radius:50%;will-change:left;"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#bbb;pointer-events:none;font-family:'Heebo',sans-serif;" id="flip-slider-label">משוך להפוך</div>
+    </div>
+  </div>
   <div class="quiz-grid" id="quiz-options" style="display:none"></div>
   <div class="flash-actions" id="flash-actions">
     <button class="btn-card bad" onclick="markWrong()">שאל שוב</button>
@@ -521,10 +528,13 @@ function showCard() {
     document.getElementById('flash-actions').style.display = 'flex';
     document.getElementById('quiz-actions').style.display = 'none';
     document.getElementById('score-row').style.display = 'none';
+    document.getElementById('flip-slider-wrap').style.display = '';
+    resetSlider();
   } else {
     document.getElementById('flash-actions').style.display = 'none';
     document.getElementById('quiz-actions').style.display = 'flex';
     document.getElementById('score-row').style.display = 'flex';
+    document.getElementById('flip-slider-wrap').style.display = 'none';
     quizAnswered = false; selectedQuizBtn = null;
     const cb = document.getElementById('confirm-btn');
     cb.className = 'btn-continue';
@@ -751,16 +761,8 @@ cardWrap.addEventListener('dblclick', e => {
   const rect = cardWrap.getBoundingClientRect();
   const tx = e.clientX - rect.left - rect.width/2;
   const ty = e.clientY - rect.top - rect.height/2;
-  zoomScale = 3;
-  panX = -tx * (3-1) * 0.5;
-  panY = -ty * (3-1) * 0.5;
+  zoomScale = 3; panX = -tx*(3-1)*0.5; panY = -ty*(3-1)*0.5;
   applyZoom();
-  if (!hintShown) {
-    hintShown = true;
-    localStorage.setItem('pictour_hint','1');
-    const h = document.getElementById('hint-row');
-    if (h) h.classList.add('used');
-  }
 });
 
 // ── PINCH ZOOM (touch) ──
@@ -794,43 +796,35 @@ cardWrap.addEventListener('touchmove', e => {
   }
 },{passive:false});
 cardWrap.addEventListener('touchend',e=>{
+  if(e.touches.length===1 && zoomScale>1){
+    // transitioning from pinch to single finger — reset pan origin
+    panOriginX=e.touches[0].clientX;
+    panOriginY=e.touches[0].clientY;
+    panStartX=panX;
+    panStartY=panY;
+  }
   if(e.touches.length<2){lastDist=null;lastAngle=null;setTimeout(()=>{isPinching=false;},50);}
   if(zoomScale<1)resetZoom();
 });
 
-// double tap = zoom, triple tap = flip
-let lastTap = 0, tapCount = 0, tapTimer = null;
+// double tap = zoom / reset zoom
+let lastTap = 0;
 cardWrap.addEventListener('touchend', e => {
   if (isPinching || e.touches.length > 0) return;
   const now = Date.now();
   const touch = e.changedTouches[0];
-  if (now - lastTap < 320) {
-    tapCount++;
-  } else {
-    tapCount = 1;
+  if (now - lastTap < 300) {
+    e.preventDefault();
+    if (zoomScale > 1.05) { resetZoom(); }
+    else {
+      const rect = cardWrap.getBoundingClientRect();
+      const tx = touch.clientX - rect.left - rect.width/2;
+      const ty = touch.clientY - rect.top - rect.height/2;
+      zoomScale = 3; panX = -tx*(3-1)*0.5; panY = -ty*(3-1)*0.5;
+      applyZoom();
+    }
   }
   lastTap = now;
-  if (tapTimer) clearTimeout(tapTimer);
-  const currentCount = tapCount;
-  tapTimer = setTimeout(() => {
-    if (currentCount >= 3 && mode === 'flash' && zoomScale <= 1.05) {
-      // triple tap = flip
-      e.preventDefault();
-      flipCard();
-    } else if (currentCount === 2) {
-      // double tap = zoom
-      e.preventDefault();
-      if (zoomScale > 1.05) { resetZoom(); }
-      else {
-        const rect = cardWrap.getBoundingClientRect();
-        const tx = touch.clientX - rect.left - rect.width/2;
-        const ty = touch.clientY - rect.top - rect.height/2;
-        zoomScale = 3; panX = -tx*(3-1)*0.5; panY = -ty*(3-1)*0.5;
-        applyZoom();
-      }
-    }
-    tapCount = 0;
-  }, 320);
 },{passive:false});
 
 function flipCard() {
@@ -851,6 +845,69 @@ if (hintShown) {
   if (h) h.classList.add('used');
 }
 
+// ── FLIP SLIDER ──
+function resetSlider() {
+  const thumb = document.getElementById('flip-slider-thumb');
+  const label = document.getElementById('flip-slider-label');
+  if (!thumb) return;
+  thumb.style.transition = 'left 0.3s';
+  thumb.style.left = '4px';
+  thumb.style.background = '#111';
+  if (label) { label.textContent = 'משוך להפוך'; label.style.color = '#bbb'; }
+  setTimeout(() => { if (thumb) thumb.style.transition = ''; }, 300);
+}
+
+(function() {
+  let sliderDragging = false, sliderStartX = 0, trackWidth = 0;
+  const track = document.getElementById('flip-slider-track');
+  const thumb = document.getElementById('flip-slider-thumb');
+  const label = document.getElementById('flip-slider-label');
+  if (!track || !thumb) return;
+
+  function startDrag(clientX) {
+    if (mode !== 'flash') return;
+    sliderDragging = true;
+    sliderStartX = clientX;
+    trackWidth = track.getBoundingClientRect().width;
+    thumb.style.transition = '';
+  }
+
+  function moveDrag(clientX) {
+    if (!sliderDragging) return;
+    const maxLeft = trackWidth - 28 - 4;
+    const dx = clientX - sliderStartX;
+    const left = Math.max(4, Math.min(maxLeft, 4 + dx));
+    thumb.style.left = left + 'px';
+    const pct = (left - 4) / (maxLeft - 4);
+    const green = Math.round(pct * 255);
+    thumb.style.background = `rgb(${Math.round(17 + pct*78)},${Math.round(17 + pct*154)},${Math.round(17 + pct*17)})`;
+    if (label) label.style.color = pct > 0.3 ? '#4caf50' : '#bbb';
+    if (pct >= 0.85) endDrag(true);
+  }
+
+  function endDrag(force) {
+    if (!sliderDragging && !force) return;
+    sliderDragging = false;
+    const maxLeft = trackWidth - 28 - 4;
+    const curLeft = parseFloat(thumb.style.left) || 4;
+    const pct = (curLeft - 4) / (maxLeft - 4);
+    if (pct >= 0.85 || force === true) {
+      thumb.style.transition = 'left 0.2s';
+      thumb.style.left = maxLeft + 'px';
+      setTimeout(() => { flipCard(); resetSlider(); }, 220);
+    } else {
+      resetSlider();
+    }
+  }
+
+  track.addEventListener('touchstart', e => { e.stopPropagation(); startDrag(e.touches[0].clientX); }, {passive:true});
+  track.addEventListener('touchmove', e => { e.stopPropagation(); e.preventDefault(); moveDrag(e.touches[0].clientX); }, {passive:false});
+  track.addEventListener('touchend', e => { e.stopPropagation(); endDrag(); }, {passive:true});
+  track.addEventListener('mousedown', e => { startDrag(e.clientX); });
+  document.addEventListener('mousemove', e => { moveDrag(e.clientX); });
+  document.addEventListener('mouseup', () => { endDrag(); });
+})();
+
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 loadTopics();
@@ -861,8 +918,8 @@ loadTopics();
     <div style="font-size:17px;font-weight:900;text-align:center;">הוראות שימוש</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div style="padding:10px 14px;background:#f8f8f8;border-radius:8px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">3 נקישות — הפוך כרטיסיה</div>
-        <div style="font-size:12px;color:#888;">הצג או הסתר את התשובה</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">סליידר — הפוך כרטיסיה</div>
+        <div style="font-size:12px;color:#888;">משוך את הכדור עד הסוף</div>
       </div>
       <div style="padding:10px 14px;background:#f8f8f8;border-radius:8px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:2px;">2 נקישות — הגדלה</div>
