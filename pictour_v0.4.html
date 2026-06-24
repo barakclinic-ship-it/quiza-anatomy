@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PicTour v0.4</title>
+<title>PicTour v0.5</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap');
 :root {
@@ -137,13 +137,23 @@ header{
   width:100%;flex:1;position:relative;
   touch-action:none;min-height:0;
   overflow:hidden;border-radius:14px;
+  perspective:1200px;
+}
+.card-inner{
+  position:absolute;inset:0;
+  transform-style:preserve-3d;
+  transition:transform 0.55s cubic-bezier(0.4,0,0.2,1);
+  border-radius:14px;
+}
+.card-wrap.flipped .card-inner{
+  transform:rotateY(180deg);
 }
 .card-face{
   position:absolute;inset:0;border-radius:14px;
   border:1.5px solid var(--border);overflow:hidden;
-  transition:opacity 0.25s;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
 }
-.card-front{background:#fff;display:flex;align-items:center;justify-content:center;opacity:1;z-index:2;}
+.card-front{background:#fff;display:flex;align-items:center;justify-content:center;}
 .card-front img{
   width:100%;height:100%;object-fit:contain;display:block;
   transform-origin:center center;will-change:transform;
@@ -151,10 +161,9 @@ header{
 .card-back{
   background:var(--surface);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:10px;
-  padding:28px;opacity:0;z-index:1;
+  padding:28px;
+  transform:rotateY(180deg);
 }
-.card-wrap.flipped .card-front{opacity:0;z-index:1;}
-.card-wrap.flipped .card-back{opacity:1;z-index:2;}
 .answer-text{font-size:clamp(18px,4vw,30px);font-weight:700;text-align:center;line-height:1.3;color:var(--text);}
 .flip-label{font-size:11px;color:var(--muted);}
 .hint-row{
@@ -232,7 +241,7 @@ header{
 
 <header style="direction:ltr;">
   <div style="display:flex;align-items:baseline;gap:0">
-    <span class="app-title">PicTour</span><span class="app-version">v0.4</span>
+    <span class="app-title">PicTour</span><span class="app-version">v0.5</span>
   </div>
   <button id="home-btn" onclick="goHome()" style="display:none;background:none;border:none;cursor:pointer;padding:4px;opacity:0.35;">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
@@ -308,12 +317,14 @@ header{
     נכון: <span id="score-correct">0</span>&nbsp;&nbsp;שגוי: <span id="score-wrong">0</span>
   </div>
   <div class="card-wrap" id="card-wrap">
-    <div class="card-face card-front" id="card-front">
-      <img id="card-img" src="" alt="">
-    </div>
-    <div class="card-face card-back">
-      <div class="flip-label">תשובה</div>
-      <div class="answer-text" id="card-answer"></div>
+    <div class="card-inner" id="card-inner">
+      <div class="card-face card-front" id="card-front">
+        <img id="card-img" src="" alt="">
+      </div>
+      <div class="card-face card-back">
+        <div class="flip-label">תשובה</div>
+        <div class="answer-text" id="card-answer"></div>
+      </div>
     </div>
   </div>
   <div class="hint-row" id="hint-row">החלק שמאל/ימין • דאבל קליק להגדלה</div>
@@ -655,17 +666,12 @@ function showWrongPopup(name) {
   document.body.appendChild(bar);
 }
 
-// ── SWIPE: שתי אצבעות = הפוך כרטיסיה ──
+// ── TOUCH: גרירה / זום ──
 let swipeStartX = 0, swipeStartY = 0, isSwiping = false;
 let panOriginX = 0, panOriginY = 0, panStartX = 0, panStartY = 0;
-let twoFingerStartX = 0, twoFingerActive = false;
 const cardWrap = document.getElementById('card-wrap');
 
 cardWrap.addEventListener('touchstart', e => {
-  if (e.touches.length === 2 && mode === 'flash' && zoomScale <= 1.05) {
-    twoFingerStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    twoFingerActive = true;
-  }
   if (e.touches.length === 1) {
     swipeStartX = e.touches[0].clientX;
     swipeStartY = e.touches[0].clientY;
@@ -688,16 +694,6 @@ cardWrap.addEventListener('touchmove', e => {
 }, {passive:false});
 
 cardWrap.addEventListener('touchend', e => {
-  if (twoFingerActive && e.touches.length < 2 && mode === 'flash' && zoomScale <= 1.05) {
-    const endX = e.changedTouches[0].clientX;
-    const dx = endX - twoFingerStartX;
-    if (Math.abs(dx) > 30) {
-      document.getElementById('card-wrap').classList.toggle('flipped');
-    }
-    twoFingerActive = false;
-    return;
-  }
-  twoFingerActive = false;
   isSwiping = false;
 }, {passive:true});
 
@@ -802,41 +798,50 @@ cardWrap.addEventListener('touchend',e=>{
   if(zoomScale<1)resetZoom();
 });
 
-// double tap (touch)
-let lastTap = 0;
+// double tap = zoom, triple tap = flip
+let lastTap = 0, tapCount = 0, tapTimer = null;
 cardWrap.addEventListener('touchend', e => {
-  if (isPinching||e.touches.length>0) return;
+  if (isPinching || e.touches.length > 0) return;
   const now = Date.now();
   const touch = e.changedTouches[0];
-  if (now - lastTap < 280) {
-    e.preventDefault();
-    if (!hintShown) {
-      hintShown = true;
-      localStorage.setItem('pictour_hint','1');
-      const h = document.getElementById('hint-row');
-      if (h) h.classList.add('used');
-    }
-    if (zoomScale > 1.05) { resetZoom(); }
-    else {
-      const rect = cardWrap.getBoundingClientRect();
-      const tx = touch.clientX - rect.left - rect.width/2;
-      const ty = touch.clientY - rect.top - rect.height/2;
-      zoomScale = 3; panX = -tx*(3-1)*0.5; panY = -ty*(3-1)*0.5;
-      applyZoom();
-    }
-  } else if (mode==='flash' && zoomScale<=1.05 && !isSwiping) {
-    setTimeout(() => {
-      if (Date.now()-lastTap > 260) document.getElementById('card-wrap').classList.toggle('flipped');
-    }, 270);
+  if (now - lastTap < 320) {
+    tapCount++;
+  } else {
+    tapCount = 1;
   }
   lastTap = now;
+  if (tapTimer) clearTimeout(tapTimer);
+  const currentCount = tapCount;
+  tapTimer = setTimeout(() => {
+    if (currentCount >= 3 && mode === 'flash' && zoomScale <= 1.05) {
+      // triple tap = flip
+      e.preventDefault();
+      flipCard();
+    } else if (currentCount === 2) {
+      // double tap = zoom
+      e.preventDefault();
+      if (zoomScale > 1.05) { resetZoom(); }
+      else {
+        const rect = cardWrap.getBoundingClientRect();
+        const tx = touch.clientX - rect.left - rect.width/2;
+        const ty = touch.clientY - rect.top - rect.height/2;
+        zoomScale = 3; panX = -tx*(3-1)*0.5; panY = -ty*(3-1)*0.5;
+        applyZoom();
+      }
+    }
+    tapCount = 0;
+  }, 320);
 },{passive:false});
+
+function flipCard() {
+  document.getElementById('card-wrap').classList.toggle('flipped');
+}
 
 // keyboard
 document.addEventListener('keydown', e => {
   if (!document.getElementById('app-screen').classList.contains('active')) return;
-  if (e.key===' '&&mode==='flash') document.getElementById('card-wrap').classList.toggle('flipped');
-  if (e.key==='ArrowRight'&&mode==='flash') document.getElementById('card-wrap').classList.toggle('flipped');
+  if (e.key===' '&&mode==='flash') flipCard();
+  if (e.key==='ArrowRight'&&mode==='flash') flipCard();
   if (e.key==='ArrowLeft'&&mode==='flash') document.getElementById('card-wrap').classList.remove('flipped');
   if (e.key==='Escape'&&zoomScale>1) resetZoom();
 });
@@ -851,21 +856,25 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 loadTopics();
 </script>
 <!-- TUTORIAL POPUP -->
-<div id="tutorial-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;padding:24px;">
-  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:300px;width:100%;display:flex;flex-direction:column;gap:16px;text-align:center;">
-    <div style="font-size:18px;font-weight:900;">איך להשתמש</div>
-    <div style="display:flex;flex-direction:column;gap:12px;text-align:right;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="font-size:22px;">👆👆</div>
-        <div style="font-size:13px;"><strong>החלק עם 2 אצבעות</strong><br><span style="color:#888">להפוך כרטיסיה</span></div>
+<div id="tutorial-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:500;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:300px;width:100%;display:flex;flex-direction:column;gap:16px;">
+    <div style="font-size:17px;font-weight:900;text-align:center;">הוראות שימוש</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="padding:10px 14px;background:#f8f8f8;border-radius:8px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">3 נקישות — הפוך כרטיסיה</div>
+        <div style="font-size:12px;color:#888;">הצג או הסתר את התשובה</div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="font-size:22px;">🤏</div>
-        <div style="font-size:13px;"><strong>צבט / גרור אצבע אחת</strong><br><span style="color:#888">להגדיל ולנוע בתמונה</span></div>
+      <div style="padding:10px 14px;background:#f8f8f8;border-radius:8px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">2 נקישות — הגדלה</div>
+        <div style="font-size:12px;color:#888;">לחץ שוב פעמיים לחזרה</div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="font-size:22px;">✓ ✗</div>
-        <div style="font-size:13px;"><strong>כפתורים למטה</strong><br><span style="color:#888">למעבר לכרטיס הבא</span></div>
+      <div style="padding:10px 14px;background:#f8f8f8;border-radius:8px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">צבט / גרור — זום וניווט</div>
+        <div style="font-size:12px;color:#888;">כשהתמונה מוגדלת</div>
+      </div>
+      <div style="padding:10px 14px;background:#f8f8f8;border-radius:8px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">כפתורים למטה — כרטיס הבא</div>
+        <div style="font-size:12px;color:#888;">ידעתי / שאל שוב</div>
       </div>
     </div>
     <button onclick="closeTutorial()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#111;color:#fff;font-family:'Heebo',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">הבנתי</button>
