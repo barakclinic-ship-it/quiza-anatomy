@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PicTour v3.3</title>
+<title>PicTour v3.8</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap');
 :root {
@@ -116,7 +116,8 @@ header{
 }
 .qt-btn.selected{border-color:var(--text);background:var(--bg);}
 .section-label{font-size:11px;color:var(--muted);text-align:right;width:100%;letter-spacing:0.06em;text-transform:uppercase;}
-.count-row{display:flex;gap:6px;flex-wrap:wrap;width:100%;}
+.count-row{display:flex;gap:4px;width:100%;}
+.count-btn{flex:1;padding:8px 2px;border-radius:8px;border:1.5px solid var(--border);background:none;font-family:'Heebo',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);text-align:center;}
 .count-btn{
   padding:8px 14px;border-radius:8px;
   border:1.5px solid var(--border);background:none;
@@ -246,7 +247,7 @@ header{
 <header style="direction:ltr;">
   <div style="display:flex;flex-direction:column;align-items:flex-start;gap:0">
     <div style="display:flex;align-items:baseline;gap:0">
-      <span class="app-title" onclick="goHome()" style="cursor:pointer;">PicTour</span><span class="app-version">v3.3</span>
+      <span class="app-title" onclick="goHome()" style="cursor:pointer;">PicTour</span><span class="app-version">v3.8</span>
     </div>
     <span id="collection-label" style="font-size:11px;color:#ccc;display:none;margin-top:-1px;"></span>
   </div>
@@ -343,7 +344,7 @@ header{
   <!-- OPEN ANSWER -->
   <div id="open-answer-area" style="display:none;width:100%;flex-direction:column;gap:6px;flex-shrink:0;">
     <div style="position:relative;width:100%;">
-      <div id="autocomplete-list" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:10px;margin-bottom:4px;max-height:160px;overflow-y:auto;z-index:50;box-shadow:0 -4px 12px rgba(0,0,0,0.08);"></div>
+      <div id="autocomplete-list" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:10px;margin-bottom:4px;max-height:88px;overflow-y:auto;z-index:50;box-shadow:0 -4px 12px rgba(0,0,0,0.08);"></div>
       <input id="open-answer-input" type="text" placeholder="הקלד תשובה..." autocomplete="off"
         style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-family:'Heebo',sans-serif;font-size:15px;color:var(--text);outline:none;text-align:right;">
     </div>
@@ -664,15 +665,16 @@ function selectAC(val) {
 
 // ── QUIZ OPTIONS ──
 function buildQuizOptions() {
-  // סנן כרטיסים עם אותו שם כמו התשובה הנכונה (אותו מבנה, זווית אחרת)
-  const pool = allCards.filter(c => c !== current && c.name !== current.name);
+  // שאב דיסטרקטורים מהמאגר המלא (לא רק מהסיבוב הנוכחי)
+  const fullPool = (originalAllCards.length > allCards.length ? originalAllCards : allCards)
+    .filter(c => c.name !== current.name);
   const stop = new Set(['of','the','and','or','a','an','left','right','upper','lower','anterior','posterior','medial','lateral','superior','inferior']);
   const kw = name => name.toLowerCase().split(/\s+/).filter(w => w.length>2 && !stop.has(w));
   const ckw = kw(current.name);
   const sim = c => kw(c.name).filter(w => ckw.includes(w)).length;
-  const scored = shuffle([...pool]).map(c => ({c, s:sim(c)}));
+  const scored = shuffle([...fullPool]).map(c => ({c, s:sim(c)}));
   scored.sort((a,b) => b.s - a.s);
-  // וודא שהדיסטרקטורים ייחודיים לפי שם
+  // ייחודיים לפי שם
   const seenNames = new Set([current.name]);
   const distractors = [];
   for (const {c} of scored) {
@@ -805,7 +807,7 @@ function showDone() {
     if (idx>=0 && idx<counts.length-1)
       nextHtml = `<button class="btn-primary" style="background:#111" onclick="quizCount=${counts[idx+1]};startQuiz()">מדרגה הבאה — ${counts[idx+1]} שאלות ↑</button>`;
     document.getElementById('done-cta').innerHTML = nextHtml +
-      `<button class="btn-primary" onclick="startQuiz()">שחק שוב — ${roundTotal} שאלות</button>` +
+      `<button class="btn-primary" onclick="startQuiz()">שחק שוב — ${originalQuizCount} שאלות</button>` +
       `<button class="btn-secondary" onclick="goHome()">בחר נושא אחר</button>`;
   } else {
     // כרטיסיות
